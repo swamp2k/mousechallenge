@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Click Timer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9e1ec;
+      --accent: #1f7ae0;
+      --accent-dark: #1159ac;
+      --good: #148a58;
+      --warn: #c05a16;
+      --shadow: 0 18px 42px rgba(28, 40, 68, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(31, 122, 224, 0.10), transparent 32%),
+        radial-gradient(circle at 85% 0%, rgba(20, 138, 88, 0.10), transparent 28%),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1080px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .game,
+    .scores {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .game {
+      padding: clamp(18px, 4vw, 36px);
+      display: grid;
+      gap: 22px;
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      flex-wrap: wrap;
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 4.2rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 0.98rem;
+      max-width: 48ch;
+      margin-top: 10px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .mode-toggle,
+    .duration {
+      display: inline-grid;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #edf3fb;
+    }
+
+    .mode-toggle {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .duration {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .mode-toggle button,
+    .duration button,
+    .action {
+      appearance: none;
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .mode-toggle button,
+    .duration button {
+      padding: 10px 14px;
+      background: transparent;
+      color: var(--muted);
+      border-right: 1px solid var(--line);
+    }
+
+    .mode-toggle button:last-child,
+    .duration button:last-child {
+      border-right: 0;
+    }
+
+    .mode-toggle button.active,
+    .duration button.active {
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .duration[hidden] {
+      display: none;
+    }
+
+    .action {
+      padding: 11px 16px;
+      border-radius: 8px;
+      color: #ffffff;
+      background: var(--accent);
+      font-weight: 700;
+    }
+
+    .action:hover {
+      background: var(--accent-dark);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fbfdff;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .value {
+      display: block;
+      margin-top: 6px;
+      font-size: clamp(1.8rem, 4vw, 3.2rem);
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .click-zone {
+      min-height: 300px;
+      border: 2px solid #b9d4f4;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(31, 122, 224, 0.12), rgba(20, 138, 88, 0.10)),
+        #f7fbff;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      touch-action: manipulation;
+    }
+
+    .click-zone:active,
+    .click-zone.pulse {
+      transform: scale(0.985);
+      border-color: var(--accent);
+    }
+
+    .click-zone.disabled {
+      cursor: default;
+      border-style: dashed;
+      background: #f8fafc;
+    }
+
+    .click-zone.countdown {
+      border-color: var(--warn);
+      background: #fff7ed;
+    }
+
+    .click-zone.waiting {
+      border-color: #dc6b6b;
+      background: #fff1f1;
+    }
+
+    .click-zone.go {
+      border-color: var(--good);
+      background: #eafaf2;
+    }
+
+    .click-zone.too-soon {
+      border-color: var(--warn);
+      background: #fff7ed;
+    }
+
+    .click-message strong {
+      display: block;
+      font-size: clamp(2rem, 7vw, 5.5rem);
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .click-message span {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .result {
+      min-height: 28px;
+      color: var(--good);
+      font-weight: 800;
+    }
+
+    .scores {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .scores header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+    }
+
+    .ghost {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--muted);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .ghost:hover {
+      color: var(--ink);
+      border-color: #aebbd0;
+    }
+
+    ol {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    li {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfdff;
+    }
+
+    .rank {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #edf3fb;
+      color: var(--accent-dark);
+      font-weight: 900;
+    }
+
+    .score-name {
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    .score-meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 2px;
+    }
+
+    .score-value {
+      font-weight: 900;
+      color: var(--ink);
+      text-align: right;
+    }
+
+    .empty {
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    dialog {
+      width: min(420px, calc(100vw - 32px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 0;
+    }
+
+    dialog::backdrop {
+      background: rgba(23, 32, 51, 0.38);
+    }
+
+    form {
+      display: grid;
+      gap: 14px;
+      padding: 22px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: end;
+    }
+
+    @media (max-width: 820px) {
+      body {
+        padding: 12px;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .click-zone {
+        min-height: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="game" aria-labelledby="game-title">
+      <div class="title-row">
+        <div>
+          <h1 id="game-title">Click Timer</h1>
+          <p class="subtle" id="gameIntro">Start the timer, mash the button, and try to earn a spot on the board.</p>
+        </div>
+        <div class="controls" aria-label="Game controls">
+          <div class="mode-toggle" aria-label="Game mode">
+            <button type="button" data-mode="click" class="active">Click</button>
+            <button type="button" data-mode="reaction">Reaction</button>
+          </div>
+          <div class="duration" id="durationControls" aria-label="Timer duration">
+            <button type="button" data-duration="10" class="active">10s</button>
+            <button type="button" data-duration="20">20s</button>
+            <button type="button" data-duration="30">30s</button>
+          </div>
+          <button type="button" class="action" id="startButton">Start</button>
+        </div>
+      </div>
+
+      <div class="stats" aria-live="polite">
+        <div class="stat">
+          <span class="label" id="timeLabel">Time</span>
+          <span class="value" id="timeLeft">10.0</span>
+        </div>
+        <div class="stat">
+          <span class="label" id="countLabel">Clicks</span>
+          <span class="value" id="clickCount">0</span>
+        </div>
+        <div class="stat">
+          <span class="label" id="rateLabel">Clicks / sec</span>
+          <span class="value" id="cps">0.0</span>
+        </div>
+      </div>
+
+      <button type="button" class="click-zone disabled" id="clickZone" aria-label="Click area">
+        <span class="click-message">
+          <strong id="zoneNumber">Ready?</strong>
+          <span id="zoneHint">Choose a duration and press Start.</span>
+        </span>
+      </button>
+
+      <p class="result" id="result" aria-live="polite"></p>
+    </section>
+
+    <aside class="scores" aria-labelledby="scores-title">
+      <header>
+        <h2 id="scores-title">Highscores</h2>
+        <button type="button" class="ghost" id="resetScores">Reset</button>
+      </header>
+      <ol id="scoreList"></ol>
+      <p class="empty" id="emptyScores">No scores yet. This is suspiciously winnable.</p>
+    </aside>
+  </main>
+
+  <dialog id="scoreDialog">
+    <form method="dialog" id="scoreForm">
+      <div>
+        <h2>New highscore</h2>
+        <p class="subtle" id="finalScoreText"></p>
+      </div>
+      <label>
+        <span class="label">Name</span>
+        <input id="playerName" maxlength="18" autocomplete="nickname" placeholder="Player" required>
+      </label>
+      <div class="form-actions">
+        <button type="button" class="ghost" id="skipSave">Skip</button>
+        <button type="submit" class="action">Save score</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const storageKeys = {
+      click: "click-timer-highscores-v1",
+      reaction: "click-timer-reaction-highscores-v1"
+    };
+
+    const state = {
+      mode: "click",
+      duration: 10,
+      clicks: 0,
+      startedAt: 0,
+      endsAt: 0,
+      reactionReadyAt: 0,
+      reactionTimeout: 0,
+      countdownTimeout: 0,
+      phase: "idle",
+      running: false,
+      frame: 0,
+      pendingScore: null
+    };
+
+    const gameIntro = document.querySelector("#gameIntro");
+    const durationControls = document.querySelector("#durationControls");
+    const startButton = document.querySelector("#startButton");
+    const clickZone = document.querySelector("#clickZone");
+    const zoneNumber = document.querySelector("#zoneNumber");
+    const zoneHint = document.querySelector("#zoneHint");
+    const timeLabel = document.querySelector("#timeLabel");
+    const countLabel = document.querySelector("#countLabel");
+    const rateLabel = document.querySelector("#rateLabel");
+    const timeLeft = document.querySelector("#timeLeft");
+    const clickCount = document.querySelector("#clickCount");
+    const cps = document.querySelector("#cps");
+    const result = document.querySelector("#result");
+    const scoreList = document.querySelector("#scoreList");
+    const emptyScores = document.querySelector("#emptyScores");
+    const resetScores = document.querySelector("#resetScores");
+    const scoreDialog = document.querySelector("#scoreDialog");
+    const scoreForm = document.querySelector("#scoreForm");
+    const playerName = document.querySelector("#playerName");
+    const finalScoreText = document.querySelector("#finalScoreText");
+
+    function loadScores(mode = state.mode) {
+      try {
+        return JSON.parse(localStorage.getItem(storageKeys[mode])) || [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveScores(scores, mode = state.mode) {
+      localStorage.setItem(storageKeys[mode], JSON.stringify(scores));
+    }
+
+    function formatScore(score) {
+      if (score.mode === "reaction") {
+        return `${Math.round(score.reactionMs)} ms`;
+      }
+
+      return `${score.clicks} clicks`;
+    }
+
+    function scoreMeta(score) {
+      const date = new Date(score.createdAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric"
+      });
+
+      if (score.mode === "reaction") {
+        return `Reaction test · ${date}`;
+      }
+
+      return `${score.duration}s · ${score.cps.toFixed(1)} cps · ${date}`;
+    }
+
+    function renderScores() {
+      const scores = loadScores();
+      scoreList.innerHTML = "";
+      emptyScores.hidden = scores.length > 0;
+
+      scores.forEach((score, index) => {
+        const item = document.createElement("li");
+
+        item.innerHTML = `
+          <span class="rank">${index + 1}</span>
+          <span>
+            <span class="score-name"></span>
+            <span class="score-meta">${scoreMeta(score)}</span>
+          </span>
+          <span class="score-value">${formatScore(score)}</span>
+        `;
+
+        item.querySelector(".score-name").textContent = score.name;
+        scoreList.appendChild(item);
+      });
+    }
+
+    function clearTimers() {
+      cancelAnimationFrame(state.frame);
+      clearTimeout(state.reactionTimeout);
+      clearTimeout(state.countdownTimeout);
+    }
+
+    function setZoneClass(className = "") {
+      clickZone.className = "click-zone";
+      if (className) {
+        clickZone.classList.add(className);
+      }
+    }
+
+    function setDuration(duration) {
+      state.duration = duration;
+      document.querySelectorAll("[data-duration]").forEach((button) => {
+        button.classList.toggle("active", Number(button.dataset.duration) === duration);
+      });
+      if (state.phase === "idle") {
+        timeLeft.textContent = duration.toFixed(1);
+      }
+    }
+
+    function resetRound(message = true) {
+      clearTimers();
+      state.clicks = 0;
+      state.startedAt = 0;
+      state.endsAt = 0;
+      state.reactionReadyAt = 0;
+      state.running = false;
+      state.phase = "idle";
+      setZoneClass("disabled");
+      startButton.textContent = "Start";
+
+      if (state.mode === "click") {
+        timeLabel.textContent = "Time";
+        countLabel.textContent = "Clicks";
+        rateLabel.textContent = "Clicks / sec";
+        timeLeft.textContent = state.duration.toFixed(1);
+        clickCount.textContent = "0";
+        cps.textContent = "0.0";
+        if (message) {
+          zoneNumber.textContent = "Ready?";
+          zoneHint.textContent = "Choose a duration and press Start.";
+        }
+      } else {
+        timeLabel.textContent = "State";
+        countLabel.textContent = "Last ms";
+        rateLabel.textContent = "Best ms";
+        timeLeft.textContent = "-";
+        clickCount.textContent = "-";
+        cps.textContent = bestReactionText();
+        if (message) {
+          zoneNumber.textContent = "Ready?";
+          zoneHint.textContent = "Press Start, wait for green, then click.";
+        }
+      }
+    }
+
+    function bestReactionText() {
+      const scores = loadScores("reaction");
+      return scores[0] ? `${Math.round(scores[0].reactionMs)}` : "-";
+    }
+
+    function setMode(mode) {
+      if (state.mode === mode && state.phase === "idle") {
+        return;
+      }
+
+      state.mode = mode;
+      document.querySelectorAll("[data-mode]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.mode === mode);
+      });
+
+      const clickMode = mode === "click";
+      durationControls.hidden = !clickMode;
+      gameIntro.textContent = clickMode
+        ? "Start the timer, mash the button, and try to earn a spot on the board."
+        : "Wait for the box to turn green, then click as fast as your hands allow.";
+      document.querySelector("#scores-title").textContent = clickMode ? "Click Highscores" : "Reaction Highscores";
+      emptyScores.textContent = clickMode
+        ? "No scores yet. This is suspiciously winnable."
+        : "No reaction scores yet. Time to prove your reflexes.";
+      result.textContent = "";
+      renderScores();
+      resetRound();
+    }
+
+    function runCountdown(onDone) {
+      clearTimers();
+      state.phase = "countdown";
+      state.running = false;
+      setZoneClass("countdown");
+      startButton.textContent = "Restart";
+      result.textContent = "";
+      clickCount.textContent = state.mode === "click" ? "0" : "-";
+      cps.textContent = state.mode === "click" ? "0.0" : bestReactionText();
+
+      let count = 3;
+      const tick = () => {
+        zoneNumber.textContent = String(count);
+        zoneHint.textContent = "Get ready.";
+        timeLeft.textContent = String(count);
+
+        if (count === 0) {
+          onDone();
+          return;
+        }
+
+        count -= 1;
+        state.countdownTimeout = setTimeout(tick, 1000);
+      };
+
+      tick();
+    }
+
+    function updateStats(now) {
+      const remaining = Math.max(0, (state.endsAt - now) / 1000);
+      const elapsed = Math.max(0.001, (now - state.startedAt) / 1000);
+      timeLeft.textContent = remaining.toFixed(1);
+      clickCount.textContent = String(state.clicks);
+      cps.textContent = (state.clicks / elapsed).toFixed(1);
+
+      if (remaining <= 0) {
+        finishRound();
+        return;
+      }
+
+      state.frame = requestAnimationFrame(updateStats);
+    }
+
+    function startClickRound() {
+      state.clicks = 0;
+      state.startedAt = performance.now();
+      state.endsAt = state.startedAt + state.duration * 1000;
+      state.running = true;
+      state.phase = "clicking";
+      result.textContent = "";
+      setZoneClass("");
+      startButton.textContent = "Restart";
+      zoneNumber.textContent = "0";
+      zoneHint.textContent = "Click here as fast as you can.";
+      state.frame = requestAnimationFrame(updateStats);
+    }
+
+    function startReactionRound() {
+      state.running = false;
+      state.phase = "waiting";
+      state.reactionReadyAt = 0;
+      timeLeft.textContent = "Wait";
+      clickCount.textContent = "-";
+      cps.textContent = bestReactionText();
+      setZoneClass("waiting");
+      zoneNumber.textContent = "Wait";
+      zoneHint.textContent = "Do not click until the box turns green.";
+
+      const delay = 1200 + Math.random() * 2800;
+      state.reactionTimeout = setTimeout(() => {
+        state.phase = "ready";
+        state.reactionReadyAt = performance.now();
+        setZoneClass("go");
+        zoneNumber.textContent = "Click!";
+        zoneHint.textContent = "Now.";
+        timeLeft.textContent = "Go";
+      }, delay);
+    }
+
+    function startRound() {
+      if (state.mode === "click") {
+        runCountdown(startClickRound);
+      } else {
+        runCountdown(startReactionRound);
+      }
+    }
+
+    function finishRound() {
+      state.running = false;
+      state.phase = "idle";
+      cancelAnimationFrame(state.frame);
+      setZoneClass("disabled");
+      startButton.textContent = "Start";
+
+      const finalCps = state.clicks / state.duration;
+      timeLeft.textContent = "0.0";
+      cps.textContent = finalCps.toFixed(1);
+      zoneNumber.textContent = String(state.clicks);
+      zoneHint.textContent = "Time is up.";
+      result.textContent = `Final score: ${state.clicks} clicks in ${state.duration}s (${finalCps.toFixed(1)} cps).`;
+
+      const scores = loadScores();
+      const qualifies = scores.length < 10 || state.clicks > scores[scores.length - 1].clicks;
+
+      if (state.clicks > 0 && qualifies) {
+        state.pendingScore = {
+          mode: "click",
+          name: "",
+          clicks: state.clicks,
+          duration: state.duration,
+          cps: finalCps,
+          createdAt: Date.now()
+        };
+        finalScoreText.textContent = `${state.clicks} clicks at ${finalCps.toFixed(1)} clicks per second.`;
+        playerName.value = localStorage.getItem("click-timer-last-name") || "";
+        scoreDialog.showModal();
+        playerName.focus();
+      }
+    }
+
+    function finishReactionRound() {
+      const reactionMs = performance.now() - state.reactionReadyAt;
+      state.phase = "idle";
+      state.running = false;
+      setZoneClass("disabled");
+      startButton.textContent = "Start";
+      timeLeft.textContent = "Done";
+      clickCount.textContent = String(Math.round(reactionMs));
+
+      const scores = loadScores("reaction");
+      const best = scores[0]?.reactionMs;
+      cps.textContent = best ? String(Math.round(Math.min(best, reactionMs))) : String(Math.round(reactionMs));
+      zoneNumber.textContent = `${Math.round(reactionMs)} ms`;
+      zoneHint.textContent = "Reaction recorded.";
+      result.textContent = `Reaction time: ${Math.round(reactionMs)} ms.`;
+
+      const qualifies = scores.length < 10 || reactionMs < scores[scores.length - 1].reactionMs;
+      if (qualifies) {
+        state.pendingScore = {
+          mode: "reaction",
+          name: "",
+          reactionMs,
+          createdAt: Date.now()
+        };
+        finalScoreText.textContent = `${Math.round(reactionMs)} ms reaction time. Lower is better.`;
+        playerName.value = localStorage.getItem("click-timer-last-name") || "";
+        scoreDialog.showModal();
+        playerName.focus();
+      }
+    }
+
+    function falseStart() {
+      clearTimers();
+      state.phase = "idle";
+      state.running = false;
+      setZoneClass("too-soon");
+      startButton.textContent = "Start";
+      timeLeft.textContent = "-";
+      clickCount.textContent = "Too soon";
+      zoneNumber.textContent = "Too soon";
+      zoneHint.textContent = "Wait for green. Press Start to try again.";
+      result.textContent = "False start. That one does not count.";
+    }
+
+    document.querySelectorAll("[data-duration]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (state.phase === "idle") {
+          setDuration(Number(button.dataset.duration));
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-mode]").forEach((button) => {
+      button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+
+    startButton.addEventListener("click", startRound);
+
+    clickZone.addEventListener("click", () => {
+      if (state.mode === "reaction") {
+        if (state.phase === "waiting" || state.phase === "countdown") {
+          falseStart();
+          return;
+        }
+
+        if (state.phase === "ready") {
+          finishReactionRound();
+          return;
+        }
+
+        return;
+      }
+
+      if (state.phase === "countdown") {
+        return;
+      }
+
+      if (!state.running) {
+        return;
+      }
+
+      state.clicks += 1;
+      zoneNumber.textContent = String(state.clicks);
+      clickCount.textContent = String(state.clicks);
+      clickZone.classList.remove("pulse");
+      requestAnimationFrame(() => {
+        clickZone.classList.add("pulse");
+        setTimeout(() => clickZone.classList.remove("pulse"), 90);
+      });
+    });
+
+    scoreForm.addEventListener("submit", () => {
+      if (!state.pendingScore) {
+        return;
+      }
+
+      const name = playerName.value.trim() || "Player";
+      localStorage.setItem("click-timer-last-name", name);
+      const mode = state.pendingScore.mode;
+      const scores = loadScores(mode);
+      scores.push({ ...state.pendingScore, name });
+      if (mode === "reaction") {
+        scores.sort((a, b) => a.reactionMs - b.reactionMs || a.createdAt - b.createdAt);
+      } else {
+        scores.sort((a, b) => b.clicks - a.clicks || b.cps - a.cps || a.createdAt - b.createdAt);
+      }
+      saveScores(scores.slice(0, 10), mode);
+      state.pendingScore = null;
+      renderScores();
+      resetRound(false);
+    });
+
+    document.querySelector("#skipSave").addEventListener("click", () => {
+      state.pendingScore = null;
+      scoreDialog.close();
+    });
+
+    resetScores.addEventListener("click", () => {
+      if (confirm("Clear all highscores?")) {
+        saveScores([]);
+        renderScores();
+        resetRound(false);
+      }
+    });
+
+    document.querySelector("#scores-title").textContent = "Click Highscores";
+    renderScores();
+    resetRound();
+  </script>
+</body>
+</html>
